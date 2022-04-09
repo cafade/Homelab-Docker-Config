@@ -1,0 +1,57 @@
+###############################################################
+#                   Authelia configuration                    #
+###############################################################
+
+jwt_secret: <JWT_SECRET>
+default_redirection_url: https://serv.megutierrez.site
+
+server:
+  host: 0.0.0.0
+  port: 9091
+
+log:
+  level: info
+
+totp:
+  issuer: authelia.com
+
+authentication_backend:
+  file:
+    path: /config/users_database.yml
+    # Hash the password with the command 'docker run authelia/authelia:latest authelia hash-password <PASSWORD>'
+    password:
+      algorithm: argon2id
+      iterations: 1
+      salt_length: 16
+      parallelism: 8
+      memory: 64
+
+access_control:
+  default_policy: one_factor
+  rules:
+    - domain: serv.megutierrez.site
+      policy: one_factor
+    - domain: traefik.serv.megutierrez.site
+      policy: one_factor
+
+session:
+  name: authelia_session
+  secret: <AUTHELIA_SESSION_SECRET>
+  expiration: 3600  # 1 hour
+  inactivity: 300  # 5 minutes
+  domain: serv.megutierrez.site  # Should match whatever your root protected domain is
+
+regulation:
+  max_retries: 3
+  find_time: 120
+  ban_time: 300
+
+storage:
+  encryption_key: <STORAGE_ENCRYPTION_KEY>
+  local:
+    path: /config/db.sqlite3
+
+notifier:
+  filesystem:
+    filename: /config/notification.txt
+

@@ -1,0 +1,163 @@
+## CUSTOM TLS CERTS ##
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/learninweb.homelinuxserver.org/fullchain.cer
+      keyFile: /etc/traefik/certs/learninweb.homelinuxserver.org/learninweb.homelinuxserver.org.key
+#   stores:
+#     default:
+#       defaultCertificate:
+#         certFile: /etc/traefik/certs/learninweb.homelinuxserver.org/fullchain.cer
+#         keyFile: /etc/traefik/certs/learninweb.homelinuxserver.org/learninweb.homelinuxserver.org.key
+
+http:
+  ## ROUTERS ##
+  routers:
+    irc:
+      entryPoints:
+        - https
+      # rule: 'Host(`irc.serv.megutierrez.site`) || (Host(`serv.megutierrez.site`) && Path(`/irc`))'
+      rule: 'Host(`irc.serv.megutierrez.site`) || PathPrefix(`/irc`)'
+      service: irc
+      middlewares:
+        - "stripMiddleware"
+
+    qbittorrent:
+      entryPoints:
+        - https
+      rule: 'Host(`qbittorrent.serv.megutierrez.site`) || PathPrefix(`/qbittorrent`)'
+      service: qbittorrent
+      middlewares:
+        - "stripMiddleware"
+        - "auth"  
+
+    nginx-main:
+      entryPoints:
+        - https
+      rule: 'Host(`dashboard.serv.megutierrez.site`) || (Host(`serv.megutierrez.site`) && PathPrefix(`/dashboard`))'
+      service: nginx-main
+      middlewares:
+        - "stripMiddleware"
+        - "auth"  
+
+    syncthing:
+      entryPoints:
+        - https
+      rule: 'Host(`syncthing.serv.megutierrez.site`) || (Host(`serv.megutierrez.site`) && PathPrefix(`/syncthing`))'
+      service: syncthing
+      middlewares:
+        - "stripMiddleware"
+        - authelia@docker
+
+    # nginx-alt:
+    #   entryPoints:
+    #     - https
+    #   rule: 'Host(`learninweb.homelinuxserver.org`)'
+    #   service: nginx-main
+    #   middlewares:
+    #     - "stripMiddleware"
+
+  ## SERVICES ##
+  services:
+    irc:
+      loadBalancer:
+        servers:
+          - url: http://192.168.0.9:9000
+
+    qbittorrent:
+      loadBalancer:
+        servers:
+          - url: http://192.168.0.9:8282
+
+    nginx-main:
+      loadBalancer:
+        servers:
+          - url: https://192.168.0.9:8443
+
+    syncthing:
+      loadBalancer:
+        servers:
+          - url: https://192.168.0.9:8384
+
+  ## MIDDLEWARES ##
+  middlewares:
+    # Authelia guard
+    auth:
+      forwardauth:
+        address: http://authelia:9091/api/verify?rd=https://authelia.serv.megutierrez.site/
+        trustForwardHeader: true
+        authResponseHeaders:
+          - Remote-User
+          - Remote-Groups
+          - Remote-Name
+          - Remote-Email
+  
+    # Authelia basic auth guard
+    auth-basic:
+      forwardauth:
+        address: http://authelia:9091/api/verify?auth=basic # replace auth with your authelia container name
+        trustForwardHeader: true
+        authResponseHeaders:
+          - Remote-User
+          - Remote-Groups
+          - Remote-Name
+          - Remote-Email
+
+    stripMiddleware:
+      stripprefix:
+        prefixes:
+          - "/irc"
+          - "/dashboard"
+          - "/qbittorrent"
+          - "/syncthing"
+          - "/adguard"
+          - "/homer"
+
+    allowCorsMiddleware:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - OPTIONS
+          - PUT
+        accessControlAllowOriginList:
+          - https://homer.serv.megutierrez.site
+        accessControlMaxAge: 100
+        addVaryHeader: true
+
+
+    addPrefixMiddleware:
+      stripprefix:
+        prefixes:
+          - "/irc"
+          - "/dashboard"
+
+    test-redirectregex:
+      redirectRegex:
+        # regex: "^https://serv.megutierrez.site/dashboard/(.*)"
+        regex: "^https?://serv.megutierrez.site/dashboard"
+        # replacement: "http://mydomain/${1}"
+        replacement: "https://serv.megutierrez.site/dashboard/$1"
+
+    proxyHeaders:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-For: https
+    
+    # Security headers
+    securityHeaders:
+      headers:
+        customResponseHeaders:
+          X-Robots-Tag: "none,noarchive,nosnippet,notranslate,noimageindex"
+          server: ""
+        sslProxyHeaders:
+          X-Forwarded-Proto: https
+        referrerPolicy: "same-origin"
+        hostsProxyHeaders:
+          - "X-Forwarded-Host"
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsSeconds: 63072000
+        stsPreload: true

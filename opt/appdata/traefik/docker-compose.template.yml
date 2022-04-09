@@ -1,0 +1,92 @@
+version: '3'
+
+services:
+  traefik:
+    container_name: traefik
+    image: traefik:2.7
+    # command:
+    #   #- "--log.level=DEBUG"
+    #   - "--api.insecure=true"
+    #   - "--providers.docker=true"
+    #   - "--providers.docker.exposedbydefault=false"
+    #   - "--entrypoints.web.address=:80"
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - /opt/appdata/traefik/:/etc/traefik/
+      - /root/.acme.sh/:/etc/traefik/certs/
+    networks:
+      - proxy
+      - monitor-net
+    labels:
+      traefik.http.routers.api.rule: Host(`traefik.serv.megutierrez.site`)
+      traefik.http.routers.api.entryPoints: https    # Set the Traefik entry point.
+      traefik.http.routers.api.service: api@internal    # Enable Traefik API.
+      traefik.http.routers.api.middlewares: authelia@docker    # If your are using Authelia, then this label will secure the traefik dashboard.
+      traefik.enable: true   # Enable Traefik reverse proxy for the Traefik dashboard.
+    environment:
+      DOCKER_HOST: dockersocket
+      CF_DNS_API_TOKEN: <CF_DNS_API_TOKEN>
+    restart: unless-stopped
+    depends_on:
+      - dockersocket
+
+  dockersocket:
+    container_name: dockersocket
+    image: tecnativa/docker-socket-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - proxy
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    privileged: true
+    restart: unless-stopped
+
+  authelia:
+    image: authelia/authelia
+    container_name: authelia
+    volumes:
+      - /opt/appdata/traefik/authelia-conf:/config
+    networks:
+      - proxy
+    labels:
+      traefik.enable: true
+      traefik.http.routers.authelia.rule: Host(`authelia.serv.megutierrez.site`)
+      traefik.http.routers.authelia.entrypoints: https
+      traefik.http.routers.authelia.tls: true
+      traefik.http.routers.authelia.tls.options: default
+      traefik.http.middlewares.authelia.forwardauth.address: http://authelia:9091/api/verify?rd=https://authelia.serv.megutierrez.site/  # yamllint disable-line rule:line-length
+      traefik.http.middlewares.authelia.forwardauth.trustForwardHeader: true
+      traefik.http.middlewares.authelia.forwardauth.authResponseHeaders: Remote-User,Remote-Groups,Remote-Name,Remote-Email  # yamllint disable-line rule:line-length
+    expose:
+      - 9091
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    environment:
+      - TZ=America/Bogota
+
+  # whoami:
+  #   image: traefik/whoami
+  #   container_name: whoami
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.whoami.entrypoints=https"
+  #     - "traefik.http.routers.whoami.rule=Host(`serv.megutierrez.site`) && PathPrefix(`/whoami`)"
+
+  #   networks:
+  #     - proxy
+
+
+networks:
+  proxy:
+    driver: bridge
+    external: true
+  monitor-net:
+    name: monitor-net
+    driver: bridge
+

@@ -1,0 +1,11 @@
+# Authelia configuration
+authelia-conf/db.sqlite3
+authelia-conf/notification.txt
+authelia-conf/configuration.yml
+authelia-conf/users_database.yml
+
+# Traefik configuration
+acme.json
+docker-compose.yml
+traefik.yml
+
