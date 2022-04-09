@@ -1,0 +1,19 @@
+version: '2'
+
+services:
+  vault:
+    container_name: vault
+    image: vault
+    ports:
+      - "8200:8200"
+    restart: unless-stopped
+    volumes:
+      - ./volumes/logs:/vault/logs
+      # - ./volumes/file:/vault/file
+      - ./volumes/data:/vault/data # change permissions with: chown -R 100:root ./volumes/data
+      - ./volumes/config:/vault/config
+      - ./volumes/certs:/etc/certs
+    cap_add:
+      - IPC_LOCK
+    # entrypoint: vault server -config=/vault/config/vault.json
+    entrypoint: vault server -config=/vault/config/config.hcl
