@@ -1,0 +1,41 @@
+version: "3.3"
+
+services:
+  adguardhome:
+    image: adguard/adguardhome
+    container_name: adguardhome
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
+      # - 784:784/udp
+      # - 853:853/tcp
+      - 8444:80/tcp
+      - 3000:3000/tcp
+    restart: unless-stopped
+    volumes:
+       - ./work:/opt/adguardhome/work
+       - ./config:/opt/adguardhome/conf
+    networks:
+      - proxy
+    labels:
+      traefik.enable: true
+      traefik.http.routers.adguard.entrypoints: https
+      traefik.http.routers.adguard.rule: Host(`adguard.serv.megutierrez.site`) || (Host(`serv.megutierrez.site`) && PathPrefix(`/adguard`))
+      traefik.http.services.adguard.loadbalancer.server.port: 80 # Use actual container port
+      traefik.http.routers.adguard.middlewares: authelia@docker,stripMiddleware@file,allowCorsMiddleware@file
+      traefik.http.routers.adguard.service: adguard
+      traefik.http.routers.adguard.tls.certresolver: letsencrypt
+
+      # DNS config
+      traefik.tcp.routers.adguard-dns.rule: HostSNI(`desktop`)
+      traefik.tcp.routers.adguard-dns.entrypoints: dns
+      traefik.tcp.routers.adguard-dns.tls: true
+      traefik.tcp.routers.adguard-dns.service: adguard
+      traefik.tcp.services.adguard.loadbalancer.server.port: 53
+
+
+networks:
+  proxy:
+    driver: bridge
+    external: true
+
