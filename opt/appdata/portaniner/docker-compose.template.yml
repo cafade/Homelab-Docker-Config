@@ -1,0 +1,41 @@
+version: "3.3"
+
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    ports:
+      - 9010:9000
+    command: -H unix:///var/run/docker.sock
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    environment:
+      AGENT_SECRET: <PORTAINER_AGENT_SECRET>
+    networks:
+      - proxy
+    labels:
+      traefik.enable: true
+      traefik.http.routers.portainer.rule: Host(`portainer.serv.megutierrez.site`)
+      traefik.http.routers.portainer.entrypoints: https
+      traefik.http.services.portainer.loadbalancer.server.port: 9000 # Use actual container port
+      traefik.http.routers.portainer.middlewares: authelia@docker
+      traefik.http.routers.portainer.service: portainer
+      traefik.http.routers.portainer.tls.certresolver: letsencrypt
+
+      # Portainer Edge
+      # traefik.http.routers.edge.rule: Host(`edge.yourdomain.com`)"
+      # traefik.http.routers.edge.entrypoints: websecure"
+      # traefik.http.services.edge.loadbalancer.server.port: 8000"
+      # traefik.http.routers.edge.service: edge"
+      # traefik.http.routers.edge.tls.certresolver: letsencrypt
+
+volumes:
+  portainer_data:
+
+networks:
+  proxy:
+    driver: bridge
+    external: true
+
